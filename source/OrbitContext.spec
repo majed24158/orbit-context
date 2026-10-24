@@ -3,8 +3,8 @@ from pathlib import Path
 
 
 a = Analysis(
-    [str(Path(SPECPATH) / 'app' / 'orbit_context.py')],
-    pathex=[str(Path(SPECPATH) / 'app')],
+    [str(Path(SPECPATH) / 'orbit_context.py')],
+    pathex=[],
     binaries=[],
     datas=[],
     hiddenimports=[],
@@ -41,5 +41,5 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon=[str(Path(SPECPATH) / 'app' / 'app.ico')],
+    icon=[str(Path(SPECPATH) / 'app.ico')],
 )

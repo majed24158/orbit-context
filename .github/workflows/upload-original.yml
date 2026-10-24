@@ -1,0 +1,56 @@
+name: Upload original executable
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/upload-original.yml']
+permissions:
+  contents: write
+jobs:
+  upload:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Restore original executable and update downloads
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 - <<'PY'
+          import hashlib, json, os, pathlib, urllib.request, zipfile
+          repo = 'majed24158/orbit-context'
+          api = 'https://api.github.com/repos/' + repo
+          asset = 'Orbit-Context-Windows-v1.2.zip'
+          original = pathlib.Path(os.environ['RUNNER_TEMP']) / 'original.zip'
+          urllib.request.urlretrieve('https://github.com/' + repo + '/releases/download/v1.2/' + asset, original)
+          assert hashlib.sha256(original.read_bytes()).hexdigest() == '250379fe6aef6bea9b2c6fb45c1b92023ab95c94d1df29895c0f9d9b6d00cb54'
+          exe = pathlib.Path('OrbitContext.exe')
+          with zipfile.ZipFile(original) as z:
+              exe.write_bytes(z.read('Orbit-Context-v1.2/OrbitContext.exe'))
+          assert hashlib.sha256(exe.read_bytes()).hexdigest() == '981cd0a5558d78cc7bf652541ee7f143e3102b6fa8932fb05cc092652517d2af'
+          package = pathlib.Path(os.environ['RUNNER_TEMP']) / asset
+          with zipfile.ZipFile(package, 'w', zipfile.ZIP_DEFLATED, compresslevel=6) as z:
+              for p in sorted(pathlib.Path('.').rglob('*')):
+                  if p.is_file() and p.parts[0] not in ('.git', '.github'):
+                      z.write(p, 'Orbit-Context-v1.2/' + p.as_posix())
+          def request(url, method='GET', data=None, content_type='application/json'):
+              headers = {'Authorization': 'Bearer ' + os.environ['GH_TOKEN'], 'Accept': 'application/vnd.github+json', 'Content-Type': content_type}
+              with urllib.request.urlopen(urllib.request.Request(url, data=data, headers=headers, method=method), timeout=180) as r:
+                  payload = r.read()
+                  return json.loads(payload) if payload else None
+          release = request(api + '/releases/tags/v1.2')
+          for item in release['assets']:
+              if item['name'] in (asset, exe.name):
+                  request(api + '/releases/assets/' + str(item['id']), 'DELETE')
+          upload = release['upload_url'].split('{')[0]
+          for p, content_type in [(package, 'application/zip'), (exe, 'application/octet-stream')]:
+              request(upload + '?name=' + p.name, 'POST', p.read_bytes(), content_type)
+          body = 'Orbit Context v1.2\n\nحمّل OrbitContext.exe للتشغيل مباشرة، أو ZIP لجميع الملفات. شغّل البرنامج واضغط «تثبيت / تحديث قسم الأدوات» مرة واحدة.\n\nالمصدر الأصلي داخل source والتراخيص داخل licenses. تفاصيل الاستخدام في اقرأني.txt.'
+          request(api + '/releases/' + str(release['id']), 'PATCH', json.dumps({'body': body}).encode())
+          print('Original executable verified. Clean ZIP and EXE uploaded.')
+          PY
+      - name: Add executable to repository
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add OrbitContext.exe
+          git commit -m "Include original OrbitContext.exe"
+          git push origin HEAD:main

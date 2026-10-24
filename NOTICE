@@ -1,5 +1,0 @@
-Orbit Context 1.2
-License: GNU AGPL v3 or later.
-Original Orbit Files wheel project is preserved. See ../licenses for dependencies.
-Microsoft Word and Codex CLI are not bundled. Smart conversion uses the installed Codex CLI with the user account.
-No generated model code is executed; the model supplies bounded document data.
